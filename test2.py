@@ -1,19 +1,21 @@
-
-step=0
-def cal(x,y):
-	global step
-	if (x==y):
-		print(step)
-		return
-	elif (x<y) and ((y-x)>(2*x-y)):
-		x=x*2
-		step+=1
-	elif (2*x-y)>(x-y/2):
-		step+=x-y/2
-		x=y/2
-	print(step)
-	cal(x,y)
-
-cal(13,14)
+x = 1
+y = 5
+step = 0
 
 
+def cal(y):
+    global step
+    if x == y:
+        print(step)
+        return
+    if y % 2:
+        step += 1
+    if (y + 1) // 2 >= x:
+        step += 1
+        cal((y + 1) // 2)
+    else:
+        step += x - (y + 1) // 2 + 1
+        cal(x)
+
+
+cal(y)
