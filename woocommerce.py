@@ -3,7 +3,7 @@ import csv
 import re
 from collections import defaultdict
 from urllib.parse import unquote
-
+import phpserialize
 import chardet
 
 from cartmigration.libs.utils import *
@@ -3455,9 +3455,24 @@ class LeCartWoocommerce(LeCartWordpress):
 		id_product = self.import_product_data_connector(self.create_insert_query_connector('posts', product_data))
 		self.insert_map(self.TYPE_PRODUCT, convert['id'], id_product, convert['code'])
 
+		thumbnail_id = False
+		product_image = ''
+		if convert['thumb_image']['url'] or convert['thumb_image']['path']:
+			image_process = self.process_image_before_import(convert['thumb_image']['url'],
+															 convert['thumb_image']['path'])
+			image_import_path = self.uploadImageConnector(image_process, self.add_prefix_path(
+				self.make_woocommerce_image_path(image_process['path'], self.TYPE_PRODUCT),
+				self._notice['target']['config']['image_product'].rstrip('/')))
+			if image_import_path:
+				product_image = self.remove_prefix_path(image_import_path,
+													 self._notice['target']['config']['image_product'])
+				image_details = self.get_sizes(image_process['url'])
+				thumbnail_id = self.wp_image(product_image, image_details, convert=convert)
+
 		product_meta = {
 			'_edit_lock': '',
 			'_edit_last': 1,
+			'_thumbnail_id': thumbnail_id,
 			'_regular_price': convert['price'],
 			'_sale_price': convert['price'],
 			'total_sales': 0,
@@ -3482,7 +3497,6 @@ class LeCartWoocommerce(LeCartWordpress):
 			'_height': convert['height'],
 			'_sku': convert['sku'],
 		}
-
 		for meta_key, meta_value in product_meta.items():
 			meta_data = {
 				'post_id': id_product,
@@ -3491,10 +3505,15 @@ class LeCartWoocommerce(LeCartWordpress):
 			}
 			self.import_data_connector(self.create_insert_query_connector('postmeta', data=meta_data), 'products')
 
+		query = {
+			'type': 'select',
+			'query': "SELECT * FROM  _DBPRF_term_taxonomy WHERE taxonomy = 'product_type'"
+		}
+		product_type = self.select_data_connector(query)['data'][0]['term_taxonomy_id']
 		for category in convert['categories']:
 			term_relate = {
 				'object_id': id_product,
-				'term_taxonomy_id': 17
+				'term_taxonomy_id': product_type
 			}
 			self.import_data_connector(self.create_insert_query_connector('term_relationships', data=term_relate), 'products')
 			id_category = self.get_map_field_by_src(self.TYPE_CATEGORY, category['id'], category['code'])
